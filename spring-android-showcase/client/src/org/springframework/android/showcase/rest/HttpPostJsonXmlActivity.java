@@ -16,25 +16,16 @@
 
 package org.springframework.android.showcase.rest;
 
-import org.springframework.android.showcase.AbstractAsyncActivity;
-import org.springframework.android.showcase.R;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.StringHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.http.converter.xml.SimpleXmlHttpMessageConverter;
-import org.springframework.web.client.RestTemplate;
-
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import org.springframework.android.showcase.AbstractAsyncActivity;
+import org.springframework.android.showcase.R;
+import org.springframework.android.showcase.to.AbstractJsonPostTask;
 
 /**
  * @author Roy Clarkson
@@ -55,28 +46,29 @@ public class HttpPostJsonXmlActivity extends AbstractAsyncActivity {
 
 		// Initiate the JSON POST request when the JSON button is clicked
 		final Button buttonJson = (Button) findViewById(R.id.button_post_json);
+		final String uri = getString(R.string.base_uri);
 		buttonJson.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View v) {
-				new PostMessageTask().execute(MediaType.APPLICATION_JSON);
+				new PostMessageTask(uri).execute();
 			}
 		});
 
 		// Initiate the XML POST request when the XML button is clicked
-		final Button buttonXml = (Button) findViewById(R.id.button_post_xml);
-		buttonXml.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View v) {
-				new PostMessageTask().execute(MediaType.APPLICATION_XML);
-			}
-		});
+//		final Button buttonXml = (Button) findViewById(R.id.button_post_xml);
+//		buttonXml.setOnClickListener(new View.OnClickListener() {
+//			public void onClick(View v) {
+//				new PostMessageTask().execute(MediaType.APPLICATION_XML);
+//			}
+//		});
 	}
 
 	// ***************************************
 	// Private methods
 	// ***************************************
-	private void showResult(String result) {
+	private void showResult(Object result) {
 		if (result != null) {
 			// display a notification to the user with the response message
-			Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+			Toast.makeText(this, "AbstractJsonPostTask->" + result, Toast.LENGTH_LONG).show();
 		} else {
 			Toast.makeText(this, "I got null, something happened!", Toast.LENGTH_LONG).show();
 		}
@@ -85,77 +77,44 @@ public class HttpPostJsonXmlActivity extends AbstractAsyncActivity {
 	// ***************************************
 	// Private classes
 	// ***************************************
-	private class PostMessageTask extends AsyncTask<MediaType, Void, String> {
+	private class PostMessageTask extends AbstractJsonPostTask<Message,Message> {
 
-		private Message message;
+		public PostMessageTask(String uri) {
+			super(Message.class,uri);
+		}
 
 		@Override
 		protected void onPreExecute() {
+			Log.i(TAG,"-> onPreExecute");
 			showLoadingProgressDialog();
 
 			// build the message object
-			EditText editText = (EditText) findViewById(R.id.edit_text_message_id);
+			EditText idET = (EditText) findViewById(R.id.edit_text_message_id);
+            EditText sbjtET = (EditText) findViewById(R.id.edit_text_message_subject);
+            EditText msgET = (EditText) findViewById(R.id.edit_text_message_text);
 
-			message = new Message();
+            int id = parseInt(idET.getText().toString());
 
-			try {
-				message.setId(Integer.parseInt(editText.getText().toString()));
-			} catch (NumberFormatException e) {
-				message.setId(0);
-			}
-
-			editText = (EditText) findViewById(R.id.edit_text_message_subject);
-			message.setSubject(editText.getText().toString());
-
-			editText = (EditText) findViewById(R.id.edit_text_message_text);
-			message.setText(editText.getText().toString());
+			Message message = new Message();
+            message.setId(id);
+			message.setSubject(sbjtET.getText().toString());
+			message.setText(msgET.getText().toString());
+			super.postValue = message;
 		}
 
-		@Override
-		protected String doInBackground(MediaType... params) {
-			try {
-				if (params.length <= 0) {
-					return null;
-				}
+        int parseInt(String value) {
+            int id;
+            try {
+                id = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                id = 0;
+            }
+            return id;
+        }
 
-				MediaType mediaType = params[0];
-
-				// The URL for making the POST request
-				final String url = getString(R.string.base_uri) + "/sendmessage";
-
-				HttpHeaders requestHeaders = new HttpHeaders();
-
-				// Sending a JSON or XML object i.e. "application/json" or "application/xml"
-				requestHeaders.setContentType(mediaType);
-
-				// Populate the Message object to serialize and headers in an
-				// HttpEntity object to use for the request
-				HttpEntity<Message> requestEntity = new HttpEntity<Message>(message, requestHeaders);
-
-				// Create a new RestTemplate instance
-				RestTemplate restTemplate = new RestTemplate();
-				restTemplate.getMessageConverters().add(new StringHttpMessageConverter());
-				if (mediaType == MediaType.APPLICATION_JSON) {
-					restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
-				} else if (mediaType == MediaType.APPLICATION_XML) {
-					restTemplate.getMessageConverters().add(new SimpleXmlHttpMessageConverter());
-				}
-
-				// Make the network request, posting the message, expecting a String in response from the server
-				ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity,
-						String.class);
-
-				// Return the response body to display to the user
-				return response.getBody();
-			} catch (Exception e) {
-				Log.e(TAG, e.getMessage(), e);
-			}
-
-			return null;
-		}
-
-		@Override
-		protected void onPostExecute(String result) {
+        @Override
+		protected void onPostExecute(Message result) {
+            Log.i(TAG,"-> onPostExecute: " + result);
 			dismissProgressDialog();
 			showResult(result);
 		}
